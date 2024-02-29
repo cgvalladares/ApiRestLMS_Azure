@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from PIL import Image
+from PIL import Image, ImageFilter, ImageEnhance
 from imagehash import dhash
 import io
 import random
@@ -11,8 +11,7 @@ import numpy as np
 import base64
 import matplotlib.pyplot as plt
 
-
-###################### Función para comparar dhashes y encontrar coincidencias
+###################### Funciï¿½n para comparar dhashes y encontrar coincidencias
 def encontrar_coincidencias(hash_prueba):
     import imagehash
     from config import Humbral
@@ -27,79 +26,96 @@ def encontrar_coincidencias(hash_prueba):
         # Calcular la distancia de Hamming
         distancia =hash_prueba - hash_registrada
         if distancia < umbral_hash:
-            cp=encrypt(str(codigo_persona))
-            coincidencias.append(cp)
+            coincidencias.append(codigo_persona)
             dedo.append(codigo_dedo)
     return coincidencias, dedo
 
-def cargar_imagen_base64(base64_str):
+def cargar_imagen_base64_1(base64_str):
     imagen_bytes = base64.b64decode(base64_str)
     with io.BytesIO(imagen_bytes) as f:
         imagen_pil = Image.open(f).convert('RGB')
-        imagen_pil = imagen_pil.resize((360, 320))  # Redimensionar la imagen al tamaño deseado
+        imagen_pil = imagen_pil.resize((360, 320))  # Redimensionar la imagen al tamaï¿½o deseado
         img_array = np.array(imagen_pil)
         img_array = img_array / 255.0  # Normalizar la imagen
+        # Normalizar la imagen utilizando la media y la desviaciÃ³n estÃ¡ndar
+        #img_array = (img_array - np.mean(img_array)) / np.std(img_array)
         return np.expand_dims(img_array, axis=0)
-############## END Función para comparar dhashes y encontrar coincidencias
+    
+def cargar_imagen_base64_2(base64_str):
+    size=(720, 640)
+    imagen_bytes = base64.b64decode(base64_str)
+    with io.BytesIO(imagen_bytes) as f:
+        imagen_pil = Image.open(f).convert('L')  # Convertir a escala de grises
+        # Redimensionar la imagen al tamaÃ±o deseado
+        imagen_pil = imagen_pil.resize(size, Image.LANCZOS)
+        # Aplicar un filtro de mejora de contraste
+        enhancer = ImageEnhance.Contrast(imagen_pil)
+        imagen_pil = enhancer.enhance(2)  # Ajustar el factor de contraste segÃºn sea necesario
+        # Aplicar un filtro de realce de bordes
+        imagen_pil = imagen_pil.filter(ImageFilter.EDGE_ENHANCE)    
+        # Convertir la imagen PIL a un array numpy
+        img_array = np.array(imagen_pil)  
+        # Normalizar la imagen al rango [0, 1]
+        img_array = img_array / 255.0   
+        return np.expand_dims(img_array, axis=0)
+    
+def cargar_imagen_base64(base64_str):
+    size=(720, 640)
+    imagen_bytes = base64.b64decode(base64_str)
+    
+    with io.BytesIO(imagen_bytes) as f:
+        imagen_pil = Image.open(f).convert('L')  # Convertir a escala de grises
+        # Redimensionar la imagen al tamaÃ±o deseado
+        imagen_pil = imagen_pil.resize(size, Image.LANCZOS)  
+        # Aplicar un filtro de mejora de contraste
+        enhancer = ImageEnhance.Contrast(imagen_pil)
+        imagen_pil = enhancer.enhance(2)  # Ajustar el factor de contraste segÃºn sea necesario   
+        # Aplicar un filtro de realce de bordes
+        imagen_pil = imagen_pil.filter(ImageFilter.EDGE_ENHANCE)   
+        # Aplicar umbralizaciÃ³n adaptativa
+        imagen_pil = imagen_pil.point(lambda p: p > 150 and 255) 
+        # Aplicar un filtro de mediana para reducir el ruido
+        imagen_pil = imagen_pil.filter(ImageFilter.MedianFilter(size=3))  
+        # Convertir la imagen PIL a un array numpy
+        img_array = np.array(imagen_pil)     
+        # Normalizar la imagen al rango [0, 1]
+        img_array = img_array / 255.0   
+        return np.expand_dims(img_array, axis=0)
+############## END Funciï¿½n para comparar dhashes y encontrar coincidencias
 
 
 ################# otros 
 def verImgPillow(imgPillow):# agregar a toolsfinger
-    # Tamaño de las imágenes en la visualización
-    tamanio_imagen = (4, 4)
+    # Tamaï¿½o de las imï¿½genes en la visualizaciï¿½n
+    tamanio_imagen = (8, 6)
     # Mostrar la imagen de prueba
     plt.figure(figsize=tamanio_imagen)
     plt.imshow(imgPillow, cmap='gray')
     plt.title('Imagen de prueba')
     plt.axis('on')
     plt.show()
-    
-def encrypt(clear_text):
-    from Crypto.Cipher import AES
-    from Crypto.Random import get_random_bytes
-    from Crypto.Protocol.KDF import PBKDF2
-    import hashlib
-    import base64
-    if not clear_text:
-        return ""
-    
-    encryption_key = b'C0NTR0LT0T@LCR3AR3'
-    #salt = b'Ivan Medvedev'
-    salt = b'\x49\x76\x61\x6e\x20\x4d\x65\x64\x76\x65\x64\x65\x76'
-    kdf = PBKDF2(encryption_key, salt, 48, 1000, my_prf)
-    key = kdf[:32]
-    iv = kdf[32:48]
-    
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    clear_text_bytes = clear_text.encode('utf-8')
-    padded_data = clear_text_bytes + ((16 - len(clear_text_bytes) % 16) * chr(16 - len(clear_text_bytes) % 16)).encode()
-    cipher_text = cipher.encrypt(padded_data)
-    return base64.b64encode(cipher_text).decode()
 
-def decrypt(cipher_text):
+#salt = b'Ivan Medvedev'
+#salt = b'\x49\x76\x61\x6e\x20\x4d\x65\x64\x76\x65\x64\x65\x76' 
+key = b'LecComputacionSA'
+def encrypt(data):
     from Crypto.Cipher import AES
-    from Crypto.Protocol.KDF import PBKDF2
-    import hashlib
-    import base64
-    if not cipher_text:
-        return ""
+    from Crypto.Util.Padding import pad
     
-    encryption_key = b'C0NTR0LT0T@LCR3AR3'
-    #salt = b'Ivan Medvedev'
-    salt = b'\x49\x76\x61\x6e\x20\x4d\x65\x64\x76\x65\x64\x65\x76'
-    kdf = PBKDF2(encryption_key, salt, 48, 1000, my_prf)
-    key = kdf[:32]
-    iv = kdf[32:48]
-    
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    padded_data = base64.b64decode(cipher_text)
-    clear_text_bytes = cipher.decrypt(padded_data)
-    clear_text = clear_text_bytes.decode('utf-8').rstrip(chr((16 - len(clear_text_bytes) % 16)))
-    return clear_text
+    cipher = AES.new(key, AES.MODE_CBC)
+    iv = cipher.iv
+    encrypted_data = cipher.encrypt(pad(data.encode(), AES.block_size))
+    return base64.b64encode(iv + encrypted_data).decode()
 
-def my_prf(p, s):
-    import hashlib
-    return hashlib.sha256(p + s).digest()
+def decrypt(encrypted_data):
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+    
+    encrypted_data = base64.b64decode(encrypted_data)
+    iv = encrypted_data[:AES.block_size]
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_data = unpad(cipher.decrypt(encrypted_data[AES.block_size:]), AES.block_size)
+    return decrypted_data.decode()
 
 
 ######### test################################
@@ -121,7 +137,7 @@ def CargaImg_a_db_temp():
     # Recorre la carpeta img y sus subcarpetas
     for ruta, _, archivos in os.walk(carpeta_img):
         for archivo in archivos:
-            # Solo procesa archivos de imagen (puedes ajustar según los tipos de imagen que deseas procesar)
+            # Solo procesa archivos de imagen (puedes ajustar segï¿½n los tipos de imagen que deseas procesar)
             if archivo.endswith(('.jpg', '.jpeg', '.png')):
                 # Ruta completa de la imagen
                 imagen_path = os.path.join(ruta, archivo)
@@ -135,12 +151,12 @@ def CargaImg_a_db_temp():
                     cont=0
                 # Guarda el registro en la base de datos
                 nueva_huella = ACAHuellaDactilar(
-                    CodigoDedo=random.randint(1, 10),  # Ingresa el código del dedo según sea necesario
-                    CodigoPersona=random.randint(2345, 5412),  # Ingresa el código de la persona según sea necesario
+                    CodigoDedo=random.randint(1, 10),  # Ingresa el cï¿½digo del dedo segï¿½n sea necesario
+                    CodigoPersona=random.randint(2345, 5412),  # Ingresa el cï¿½digo de la persona segï¿½n sea necesario
                     FechaRegistro=datetime.now(),
                     Huella=hash_bytes,  # Cambiado a bytes
-                    CodigoUsuario=u,  # Ingresa el código del usuario según sea necesario
-                    HuellaEsValida=True  # Ingresa si la huella es válida o no según sea necesario
+                    CodigoUsuario=u,  # Ingresa el cï¿½digo del usuario segï¿½n sea necesario
+                    HuellaEsValida=True  # Ingresa si la huella es vï¿½lida o no segï¿½n sea necesario
                 )
                 sqlServer.session.add(nueva_huella)
     # Guarda los cambios en la base de datos

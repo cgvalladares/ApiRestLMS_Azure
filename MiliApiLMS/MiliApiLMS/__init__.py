@@ -11,9 +11,9 @@ app = Flask(__name__)
 #Cargar configuraciones
 CORS(app)
 #app.config.from_object('config.ConfigLocal')
-#app.config.from_object('config.ConfigTestDev')
+app.config.from_object('config.ConfigTestDev')
 #app.config.from_object('config.ConfigQa')
-app.config.from_object('config.ConfigAzureGeo')
+#app.config.from_object('config.ConfigAzureGeo')
 
 #ODJ DB
 sqlServer=SQLAlchemy(app)
@@ -24,14 +24,14 @@ app.register_blueprint(finger_bp)
 
 #Ejecuta contex si se necesita
 with app.app_context():
-    try:
-        sqlServer.session.execute(text('SELECT 1'))
-        print("Conexion exitosa a la base de datos")
-    except Exception as e:
-        print("Error al conectar a la base de datos:", e)
-#    import pytest
-#    from config import ConfigAzureGeo
-#    if ConfigAzureGeo.TESTING:
-#            pytest.main(['-v','MiliApiLMS/tests/fingerprintTest/test_toolsFingerprint.py'])
-#        #sqlServer.create_all()
+    import pytest
+    Test=False
+    if Test:
+        try:
+            sqlServer.session.execute(text('SELECT 1'))
+            print("Conexion exitosa a la base de datos")
+        except Exception as e:
+            print("Error al conectar a la base de datos:", e)
+        pytest.main(['-v','MiliApiLMS/tests/fingerprintTest/test_toolsFingerprint.py'])
+        #sqlServer.create_all()
 

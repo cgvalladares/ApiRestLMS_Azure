@@ -1,5 +1,7 @@
 from flask import jsonify, request
 from PIL import Image
+
+from MiliApiLMS.fingerprint.tools.toolsFingerprint import decrypt, encrypt, verImgPillow
 from . import finger_bp
 import base64
 from imagehash import dhash
@@ -11,7 +13,15 @@ from MiliApiLMS.services.authJWT.tokekJWT import token_required
 
 @finger_bp.route('/')
 def rootFinger():
-    return 'root dfsdf'
+    #cryptJS='4I4xXz/IzlOajX1KcXk5Ng==FwDTlHKKvUnK2fKmHYJslg=='
+    #pythonEnc=encrypt('2222')
+    #print(f'encrypy Python: {pythonEnc}')
+    #pythonDec=decrypt(pythonEnc)
+    #print(f'decript python: {pythonDec}')
+    #j='pT1V3hQbjH/JTdDjpqJFwgSmEP3ntIu8SUfztv801iM='
+    #jj=decrypt(j)
+    #print(f'decript JS: {jj}')
+    return 'root finger'
 
 ############### busca y compra huella con las huellas registradas en formato dhash
 @finger_bp.route('/comparefingerprint', methods=['POST'])
@@ -31,11 +41,12 @@ def comparefinger():
         imagen_huella = cargar_imagen_base64(imagen_base64['imagen_{}'.format(i + 1)])
     # Convertir la imagen de prueba a formato Pillow
     imagen_huella_pillow = Image.fromarray((imagen_huella[0] * 255).astype('uint8'))
+    #verImgPillow(imagen_huella_pillow)
     # Calcular el hash de la imagen de prueba
     hash_prueba = dhash(imagen_huella_pillow)
     coincidencias, dedo = encontrar_coincidencias(hash_prueba)
     total=len(coincidencias)
-    return jsonify({'Personas': coincidencias, 'CodigoDedo':dedo , 'totalCoincidencias':total})
+    return jsonify({'Personas': encrypt(str(coincidencias)), 'CodigoDedo': encrypt(str(dedo)) , 'totalCoincidencias':total})
 
 ############### Agrega huella en formato dhash a la DB
 @finger_bp.route('/insertfingerprint', methods=['POST'])
@@ -52,7 +63,7 @@ def insertfinger():
     #Obtiene el json y lo convierte
     json=request.headers.get('json')
     data_json = ast.literal_eval(json)
-    # Verificar que todos los campos requeridos estén presentes en el JSON
+    # Verificar que todos los campos requeridos estï¿½n presentes en el JSON
     if not all([data_json['CodigoDedo'], data_json['CodigoPersona'], data_json['CodigoUsuario'], data_json['HuellaEsValida']]):
         return jsonify({'error': 'Faltan campos requeridos en el JSON'}), 400
     huella = []
@@ -72,12 +83,16 @@ def insertfinger():
     hash_bytes = bytes(str(hash_imagen), 'utf-8')
     
     # Crear una instancia del modelo con los datos recibidos
+    cd=decrypt(data_json['CodigoDedo'])
+    cp=decrypt(data_json['CodigoPersona'])
+    cu=decrypt(data_json['CodigoUsuario'])
+    print(f'cd: {cd}, cp: {cp}, cu: {cu}')
     nueva_huella = ACAHuellaDactilar(
-        CodigoDedo=data_json['CodigoDedo'],
-        CodigoPersona=data_json['CodigoPersona'],
+        CodigoDedo=cd,
+        CodigoPersona=cp,
         FechaRegistro=obtener_fecha_y_hora(),
         Huella=hash_bytes,
-        CodigoUsuario=data_json['CodigoUsuario'],
+        CodigoUsuario=cu,
         HuellaEsValida=data_json['HuellaEsValida']
     )
     sqlServer.session.add(nueva_huella)
